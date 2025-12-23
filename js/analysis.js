@@ -226,6 +226,7 @@ export function computeKMeans(data, k, trainIndices) {
     }
     while (centroids.length < k) centroids.push([...trainData[0]]);
 
+    const dim = data[0].length;
     let assignments = new Array(n).fill(-1);
     let changed = true;
     let maxIter = 100;
@@ -251,30 +252,33 @@ export function computeKMeans(data, k, trainIndices) {
         }
 
         // Update Step: Update centroids using ONLY Train data
-        const newCentroids = Array.from({ length: k }, () => [0, 0]);
+        const newCentroids = Array.from({ length: k }, () => new Array(dim).fill(0));
         const counts = new Array(k).fill(0);
 
         // Iterate over TRAIN data only
         if (trainIndices) {
             trainIndices.forEach(realIdx => {
                 const c = assignments[realIdx];
-                newCentroids[c][0] += data[realIdx][0];
-                newCentroids[c][1] += data[realIdx][1];
+                for (let d = 0; d < dim; d++) {
+                    newCentroids[c][d] += data[realIdx][d];
+                }
                 counts[c]++;
             });
         } else {
              for (let i = 0; i < n; i++) {
                 const c = assignments[i];
-                newCentroids[c][0] += data[i][0];
-                newCentroids[c][1] += data[i][1];
+                for (let d = 0; d < dim; d++) {
+                    newCentroids[c][d] += data[i][d];
+                }
                 counts[c]++;
             }
         }
 
         for (let j = 0; j < k; j++) {
             if (counts[j] > 0) {
-                centroids[j][0] = newCentroids[j][0] / counts[j];
-                centroids[j][1] = newCentroids[j][1] / counts[j];
+                for (let d = 0; d < dim; d++) {
+                    centroids[j][d] = newCentroids[j][d] / counts[j];
+                }
             }
         }
     }
@@ -283,5 +287,9 @@ export function computeKMeans(data, k, trainIndices) {
 }
 
 function euclidean(a, b) {
-    return Math.sqrt(Math.pow(a[0]-b[0], 2) + Math.pow(a[1]-b[1], 2));
+    let sum = 0;
+    for (let i = 0; i < a.length; i++) {
+        sum += (a[i] - b[i]) ** 2;
+    }
+    return Math.sqrt(sum);
 }
