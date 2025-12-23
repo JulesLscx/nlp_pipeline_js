@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser-Based Text Analysis Tool</title>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2c3e50;
+            --light-bg: #f8f9fa;
+            --border-color: #dee2e6;
+            --success-color: #28a745;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--secondary-color);
+            margin-bottom: 30px;
+        }
+
+        .step {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: #fff;
+            opacity: 0.5;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .step.active {
+            opacity: 1;
+            pointer-events: auto;
+            border-left: 5px solid var(--primary-color);
+        }
+
+        .step h2 {
+            margin-top: 0;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            color: var(--secondary-color);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        button.secondary {
+            background-color: #95a5a6;
+        }
+
+        button.secondary:hover {
+            background-color: #7f8c8d;
+        }
+
+        button.remove-btn {
+            background-color: #e74c3c;
+            padding: 5px 10px;
+            margin-left: 10px;
+        }
+
+        button.remove-btn:hover {
+            background-color: #c0392b;
+        }
+
+        /* Pipeline Styles */
+        #pipeline-container {
+            border: 1px dashed var(--border-color);
+            padding: 15px;
+            min-height: 50px;
+            background: var(--light-bg);
+            margin-bottom: 15px;
+        }
+
+        .pipeline-item {
+            background: white;
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-radius: 4px;
+        }
+
+        .pipeline-item .controls {
+            display: flex;
+            align-items: center;
+        }
+
+        .pipeline-item .details {
+            flex-grow: 1;
+            margin-right: 10px;
+        }
+
+        #cleaning-preview-container {
+            margin-top: 15px;
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            display: none;
+            background: var(--light-bg);
+        }
+
+        /* Results Styles */
+        #results-area {
+            display: none;
+        }
+
+        .results-section {
+            margin-top: 30px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: var(--light-bg);
+        }
+
+        .scrollable-table {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+        }
+
+        canvas {
+            border: 1px solid var(--border-color);
+            background: white;
+            cursor: crosshair;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px;
+            border-radius: 4px;
+            pointer-events: none;
+            font-size: 12px;
+            max-width: 300px;
+            z-index: 100;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Text Analysis Tool</h1>
+
+    <!-- Step 1: Data Input -->
+    <div id="step-1" class="step active">
+        <h2>1. Data Input</h2>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+            <div class="form-group">
+                <label>Delimiter</label>
+                <select id="csv-delimiter">
+                    <option value=",">Comma (,)</option>
+                    <option value=";">Semicolon (;)</option>
+                    <option value="	">Tab (\t)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Encoding</label>
+                <select id="csv-encoding">
+                    <option value="UTF-8">UTF-8</option>
+                    <option value="ISO-8859-1">ISO-8859-1 (Latin1)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="csv-file">Upload CSV File</label>
+            <input type="file" id="csv-file" accept=".csv">
+        </div>
+        <div class="form-group" id="column-select-group" style="display:none;">
+            <label for="target-column">Select Text Column</label>
+            <select id="target-column"></select>
+            <button id="confirm-column-btn" style="margin-top: 10px;">Confirm Selection</button>
+        </div>
+    </div>
+
+    <!-- Step 2: Text Cleaning Pipeline -->
+    <div id="step-2" class="step">
+        <h2>2. Text Cleaning Pipeline</h2>
+        <div id="pipeline-container">
+            <p id="pipeline-empty-msg" style="color: #999; text-align: center;">No operations added.</p>
+        </div>
+
+        <div class="form-group" style="display: flex; gap: 10px;">
+            <select id="operation-select">
+                <option value="lowercase">To Lowercase</option>
+                <option value="punctuation">Remove Punctuation</option>
+                <option value="french_stopwords">Remove French Stop Words</option>
+                <option value="regex_remove">Remove Lines by Regex</option>
+                <option value="custom">Custom Function Block</option>
+            </select>
+            <button id="add-op-btn">+</button>
+        </div>
+
+        <div style="margin-top: 10px; margin-bottom: 10px;">
+            <button id="preview-cleaning-btn" class="secondary">Preview Cleaning</button>
+        </div>
+
+        <div id="cleaning-preview-container"></div>
+
+        <button id="confirm-pipeline-btn" style="margin-top: 15px;">Next: Configure Analysis</button>
+    </div>
+
+    <!-- Step 3: Analysis Configuration -->
+    <div id="step-3" class="step">
+        <h2>3. Analysis Configuration</h2>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div>
+                <h3>TF-IDF Vectorizer</h3>
+                <div class="form-group">
+                    <label>Min Document Frequency (min_df)</label>
+                    <input type="number" id="min-df" value="1" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Max Document Frequency (max_df, 0.0 - 1.0)</label>
+                    <input type="number" id="max-df" value="1.0" step="0.05" min="0" max="1">
+                </div>
+                <div class="form-group">
+                    <label>N-Gram Range</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="number" id="ngram-min" value="1" min="1" placeholder="Min">
+                        <input type="number" id="ngram-max" value="1" min="1" placeholder="Max">
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h3>Data Splitting</h3>
+                <div class="form-group">
+                    <label>Train Ratio (0.0 - 1.0)</label>
+                    <input type="number" id="split-ratio" value="0.8" step="0.1" min="0.1" max="0.9">
+                    <small>PCA and K-Means will be fit on Train, and applied to Test.</small>
+                </div>
+
+                <h3>K-Means Clustering</h3>
+                <div class="form-group">
+                    <label>Number of Clusters (k)</label>
+                    <input type="number" id="kmeans-k" value="3" min="2">
+                </div>
+
+                <h3>PCA Reduction</h3>
+                <div class="form-group">
+                    <label>Number of Components</label>
+                    <input type="number" id="pca-components" value="2" readonly title="Fixed to 2 for visualization">
+                </div>
+            </div>
+        </div>
+
+        <button id="run-analysis-btn" style="margin-top: 20px; width: 100%; padding: 15px; font-size: 16px;">Run Analysis</button>
+    </div>
+
+    <!-- Step 4: Execution & Results -->
+    <div id="step-4" class="step">
+        <h2>4. Results</h2>
+        <div id="loading-indicator" style="display:none; text-align: center; padding: 20px;">Processing...</div>
+
+        <div id="results-area">
+
+            <div class="results-section">
+                <h3>Visualization</h3>
+                <p>Circles = Train, Triangles = Test</p>
+                <div style="position: relative;">
+                    <canvas id="scatter-plot" width="800" height="500"></canvas>
+                    <div id="plot-tooltip" class="tooltip"></div>
+                </div>
+            </div>
+
+            <div class="results-section">
+                <h3>TF-IDF Matrix Preview</h3>
+                <div class="scrollable-table">
+                    <table id="tfidf-preview-table">
+                        <thead></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="results-section">
+                <h3>Processed Data</h3>
+                <div class="scrollable-table">
+                    <table id="results-table">
+                        <thead>
+                            <tr>
+                                <th>Original Text</th>
+                                <th>Cleaned Text</th>
+                                <th>Set</th>
+                                <th>Cluster ID</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Step 5: Export -->
+            <div class="results-section">
+                <h2>5. Export Data</h2>
+                <div style="display: flex; gap: 20px;">
+                    <button id="download-csv-btn">Download Cleaned Text (CSV)</button>
+                    <button id="download-json-btn">Download Vectors (JSON)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
