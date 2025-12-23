@@ -17,7 +17,15 @@ const state = {
     pcaVectors: null,
     clusters: null,
     trainIndices: null,
-    step: 1
+    step: 1,
+    // Visualization State
+    rotationX: 0,
+    rotationY: 0,
+    scale: 1,
+    visDistance: 2,
+    isDragging: false,
+    lastMouseX: 0,
+    lastMouseY: 0
 };
 
 function init() {
@@ -42,7 +50,13 @@ function init() {
 
     // Global Tooltip Listener
     const canvas = document.getElementById('scatter-plot');
-    canvas.addEventListener('mousemove', handleTooltip);
+
+    // Interaction Listeners
+    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseup', handleMouseUp);
+    canvas.addEventListener('mouseleave', handleMouseUp);
+    canvas.addEventListener('wheel', handleWheel);
 }
 
 function activateStep(stepNum) {
@@ -206,7 +220,7 @@ async function runAnalysis() {
             state.tfidfMatrix = result.matrix;
             state.featureNames = result.featureNames;
 
-            state.pcaVectors = computePCA(state.tfidfMatrix, 2, state.trainIndices);
+            state.pcaVectors = computePCA(state.tfidfMatrix, 3, state.trainIndices);
 
             const k = parseInt(document.getElementById('kmeans-k').value);
             state.clusters = computeKMeans(state.pcaVectors, k, state.trainIndices);
@@ -246,28 +260,95 @@ function performSplit(ratio) {
     state.trainIndices = trainIndices;
 }
 
-function handleTooltip(e) {
-    if (!state.plotPoints) return;
+function handleMouseDown(e) {
+    if (!state.pcaVectors) return;
+    state.isDragging = true;
+    state.lastMouseX = e.clientX;
+    state.lastMouseY = e.clientY;
+}
+
+function handleMouseMove(e) {
+    if (!state.pcaVectors) return;
 
     const canvas = document.getElementById('scatter-plot');
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
 
-    const hit = state.plotPoints.find(p => {
+    if (state.isDragging) {
+        const deltaX = e.clientX - state.lastMouseX;
+        const deltaY = e.clientY - state.lastMouseY;
+
+        state.rotationY += deltaX * 0.01;
+        state.rotationX += deltaY * 0.01;
+
+        state.lastMouseX = e.clientX;
+        state.lastMouseY = e.clientY;
+
+        drawScatterPlot(state);
+    } else {
+        // Tooltip logic
+        handleTooltip(mx, my);
+    }
+}
+
+function handleMouseUp(e) {
+    state.isDragging = false;
+}
+
+function handleWheel(e) {
+    if (!state.pcaVectors) return;
+    e.preventDefault();
+
+    const zoomSpeed = 0.1;
+    if (e.deltaY < 0) {
+        state.scale *= (1 + zoomSpeed);
+    } else {
+        state.scale /= (1 + zoomSpeed);
+    }
+    drawScatterPlot(state);
+}
+
+function handleTooltip(mx, my) {
+    if (!state.plotPoints) return;
+
+    // Use hit detection on projected points
+    // Sort by Z (implicit in painters algo, but we just check distance in 2D)
+    // Actually for 3D picking we should probably check Z-buffer or just pick closest 2D point
+    // but prioritize ones "on top".
+    // Since we draw back-to-front, the last drawn points are on top.
+    // So we should search in reverse order or just find all hits and pick max Z?
+    // state.plotPoints should store Z or index.
+
+    // Simple closest distance check
+    let bestHit = null;
+    let minDist = Infinity;
+
+    for (let i = state.plotPoints.length - 1; i >= 0; i--) {
+        const p = state.plotPoints[i];
         const dist = Math.sqrt((p.x - mx)**2 + (p.y - my)**2);
-        return dist < p.r + 2;
-    });
+        if (dist < p.r + 2) {
+             // Found a hit. Since we iterate back-to-front (top-to-bottom),
+             // the first one we find is the topmost one.
+             bestHit = p;
+             break;
+        }
+    }
 
     const tooltip = document.getElementById('plot-tooltip');
-    if (hit) {
+    if (bestHit) {
         tooltip.style.display = 'block';
         tooltip.style.left = (mx + 10) + 'px';
         tooltip.style.top = (my + 10) + 'px';
-        const item = state.cleanedData[hit.index];
+        const item = state.cleanedData[bestHit.index];
+
+        // Use CLEANED text
+        let content = item.cleaned.substring(0, 200);
+        if (item.cleaned.length > 200) content += "...";
+
         tooltip.innerHTML = `
-            <strong>${item.setLabel}</strong> (Cluster ${state.clusters[hit.index]})<br>
-            ${item.original.substring(0, 100)}...
+            <strong>${item.setLabel}</strong> (Cluster ${state.clusters[bestHit.index]})<br>
+            <div style="max-width:250px; word-wrap:break-word;">${content}</div>
         `;
     } else {
         tooltip.style.display = 'none';
