@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser-Based Text Analysis Tool</title>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2c3e50;
+            --light-bg: #f8f9fa;
+            --border-color: #dee2e6;
+            --success-color: #28a745;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--secondary-color);
+            margin-bottom: 30px;
+        }
+
+        .step {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: #fff;
+            opacity: 0.5;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .step.active {
+            opacity: 1;
+            pointer-events: auto;
+            border-left: 5px solid var(--primary-color);
+        }
+
+        .step h2 {
+            margin-top: 0;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            color: var(--secondary-color);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        button.secondary {
+            background-color: #95a5a6;
+        }
+
+        button.secondary:hover {
+            background-color: #7f8c8d;
+        }
+
+        button.remove-btn {
+            background-color: #e74c3c;
+            padding: 5px 10px;
+            margin-left: 10px;
+        }
+
+        button.remove-btn:hover {
+            background-color: #c0392b;
+        }
+
+        /* Pipeline Styles */
+        #pipeline-container {
+            border: 1px dashed var(--border-color);
+            padding: 15px;
+            min-height: 50px;
+            background: var(--light-bg);
+            margin-bottom: 15px;
+        }
+
+        .pipeline-item {
+            background: white;
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-radius: 4px;
+        }
+
+        .pipeline-item .controls {
+            display: flex;
+            align-items: center;
+        }
+
+        .pipeline-item .details {
+            flex-grow: 1;
+            margin-right: 10px;
+        }
+
+        /* Results Styles */
+        #results-area {
+            display: none;
+        }
+
+        .results-section {
+            margin-top: 30px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: var(--light-bg);
+        }
+
+        .scrollable-table {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+        }
+
+        canvas {
+            border: 1px solid var(--border-color);
+            background: white;
+            cursor: crosshair;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px;
+            border-radius: 4px;
+            pointer-events: none;
+            font-size: 12px;
+            max-width: 300px;
+            z-index: 100;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Text Analysis Tool</h1>
+
+    <!-- Step 1: Data Input -->
+    <div id="step-1" class="step active">
+        <h2>1. Data Input</h2>
+        <div class="form-group">
+            <label for="csv-file">Upload CSV File</label>
+            <input type="file" id="csv-file" accept=".csv">
+        </div>
+        <div class="form-group" id="column-select-group" style="display:none;">
+            <label for="target-column">Select Text Column</label>
+            <select id="target-column"></select>
+            <button id="confirm-column-btn" style="margin-top: 10px;">Confirm Selection</button>
+        </div>
+    </div>
+
+    <!-- Step 2: Text Cleaning Pipeline -->
+    <div id="step-2" class="step">
+        <h2>2. Text Cleaning Pipeline</h2>
+        <div id="pipeline-container">
+            <p id="pipeline-empty-msg" style="color: #999; text-align: center;">No operations added.</p>
+        </div>
+
+        <div class="form-group" style="display: flex; gap: 10px;">
+            <select id="operation-select">
+                <option value="lowercase">To Lowercase</option>
+                <option value="punctuation">Remove Punctuation</option>
+                <option value="french_stopwords">Remove French Stop Words</option>
+                <option value="regex_remove">Remove Lines by Regex</option>
+                <option value="custom">Custom Function Block</option>
+            </select>
+            <button id="add-op-btn">+</button>
+        </div>
+
+        <button id="confirm-pipeline-btn">Next: Configure Analysis</button>
+    </div>
+
+    <!-- Step 3: Analysis Configuration -->
+    <div id="step-3" class="step">
+        <h2>3. Analysis Configuration</h2>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div>
+                <h3>TF-IDF Vectorizer</h3>
+                <div class="form-group">
+                    <label>Min Document Frequency (min_df)</label>
+                    <input type="number" id="min-df" value="1" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Max Document Frequency (max_df, 0.0 - 1.0)</label>
+                    <input type="number" id="max-df" value="1.0" step="0.05" min="0" max="1">
+                </div>
+                <div class="form-group">
+                    <label>N-Gram Range</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="number" id="ngram-min" value="1" min="1" placeholder="Min">
+                        <input type="number" id="ngram-max" value="1" min="1" placeholder="Max">
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h3>PCA Reduction</h3>
+                <div class="form-group">
+                    <label>Number of Components</label>
+                    <input type="number" id="pca-components" value="2" readonly title="Fixed to 2 for visualization">
+                </div>
+
+                <h3>K-Means Clustering</h3>
+                <div class="form-group">
+                    <label>Number of Clusters (k)</label>
+                    <input type="number" id="kmeans-k" value="3" min="2">
+                </div>
+            </div>
+        </div>
+
+        <button id="run-analysis-btn" style="margin-top: 20px; width: 100%; padding: 15px; font-size: 16px;">Run Analysis</button>
+    </div>
+
+    <!-- Step 4: Execution & Results -->
+    <div id="step-4" class="step">
+        <h2>4. Results</h2>
+        <div id="loading-indicator" style="display:none; text-align: center; padding: 20px;">Processing...</div>
+
+        <div id="results-area">
+
+            <div class="results-section">
+                <h3>Visualization</h3>
+                <div style="position: relative;">
+                    <canvas id="scatter-plot" width="800" height="500"></canvas>
+                    <div id="plot-tooltip" class="tooltip"></div>
+                </div>
+            </div>
+
+            <div class="results-section">
+                <h3>TF-IDF Matrix Preview</h3>
+                <div class="scrollable-table">
+                    <table id="tfidf-preview-table">
+                        <thead></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="results-section">
+                <h3>Processed Data</h3>
+                <div class="scrollable-table">
+                    <table id="results-table">
+                        <thead>
+                            <tr>
+                                <th>Original Text</th>
+                                <th>Cleaned Text</th>
+                                <th>Cluster ID</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Step 5: Export -->
+            <div class="results-section">
+                <h2>5. Export Data</h2>
+                <div style="display: flex; gap: 20px;">
+                    <button id="download-csv-btn">Download Cleaned Text (CSV)</button>
+                    <button id="download-json-btn">Download Vectors (JSON)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+/**
+ * APP STATE
+ */
+const state = {
+    rawData: [], // Array of objects
+    headers: [],
+    targetColumn: null,
+    cleanedData: [], // Array of {original, cleaned, id}
+    tfidfMatrix: null, // 2D array
+    featureNames: [], // Array of strings
+    pcaVectors: null, // 2D array (N x 2)
+    clusters: null, // Array of integers
+    step: 1
+};
+
+/**
+ * ---------------------------------------------------------
+ * CSV PARSER (FROM SCRATCH)
+ * ---------------------------------------------------------
+ */
+function parseCSV(text) {
+    const rows = [];
+    let currentRow = [];
+    let currentField = '';
+    let insideQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const nextChar = text[i + 1];
+
+        if (insideQuotes) {
+            if (char === '"') {
+                if (nextChar === '"') {
+                    currentField += '"';
+                    i++;
+                } else {
+                    insideQuotes = false;
+                }
+            } else {
+                currentField += char;
+            }
+        } else {
+            if (char === '"') {
+                insideQuotes = true;
+            } else if (char === ',') {
+                currentRow.push(currentField);
+                currentField = '';
+            } else if (char === '\n' || char === '\r') {
+                if (char === '\r' && nextChar === '\n') {
+                    i++;
+                }
+                currentRow.push(currentField);
+                rows.push(currentRow);
+                currentRow = [];
+                currentField = '';
+            } else {
+                currentField += char;
+            }
+        }
+    }
+
+    if (currentField || currentRow.length > 0) {
+        currentRow.push(currentField);
+        rows.push(currentRow);
+    }
+
+    if (rows.length < 2) return [];
+
+    const headers = rows[0].map(h => h.trim());
+    const data = [];
+
+    for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (row.length !== headers.length) continue;
+
+        const obj = {};
+        for (let j = 0; j < headers.length; j++) {
+            obj[headers[j]] = row[j];
+        }
+        data.push(obj);
+    }
+
+    return { headers, data };
+}
+
+/**
+ * ---------------------------------------------------------
+ * TEXT CLEANING
+ * ---------------------------------------------------------
+ */
+const Operations = {
+    lowercase: (text) => text.toLowerCase(),
+    punctuation: (text) => text.replace(/[.,\/#!$%\^&\*;:{}=\-_~()?]/g, ""),
+    french_stopwords: (text) => {
+        const stopWords = new Set([
+            "au", "aux", "avec", "ce", "ces", "dans", "de", "des", "du", "elle", "en", "et", "eux",
+            "il", "je", "la", "le", "leur", "lui", "ma", "mais", "me", "meme", "mes", "moi", "mon",
+            "ne", "nos", "notre", "nous", "on", "ou", "par", "pas", "pour", "qu", "que", "qui", "sa",
+            "se", "ses", "son", "sur", "ta", "te", "tes", "toi", "ton", "tu", "un", "une", "vos", "votre",
+            "vous", "c", "d", "j", "l", "à", "m", "n", "s", "t", "y", "été", "étée", "étées", "étés",
+            "étant", "suis", "es", "est", "sommes", "êtes", "sont", "serai", "seras", "sera", "serons",
+            "serez", "seront", "serais", "serait", "serions", "seriez", "seraient", "étais", "était",
+            "étions", "étiez", "étaient", "fus", "fut", "fûmes", "fûtes", "furent", "sois", "soit",
+            "soyons", "soyez", "soient", "fusse", "fusses", "fût", "fussions", "fussiez", "fussent",
+            "ayant", "eu", "eue", "eues", "eus", "ai", "as", "avons", "avez", "ont", "aurai", "auras",
+            "aura", "aurons", "aurez", "auront", "aurais", "aurait", "aurions", "auriez", "auraient",
+            "avais", "avait", "avions", "aviez", "avaient", "eut", "eûmes", "eûtes", "eurent", "aie",
+            "aies", "ait", "ayons", "ayez", "aient", "eusse", "eusses", "eût", "eussions", "eussiez", "eussent"
+        ]);
+        return text.split(/\s+/).filter(word => !stopWords.has(word.toLowerCase())).join(" ");
+    }
+};
+
+/**
+ * ---------------------------------------------------------
+ * UI & PIPELINE
+ * ---------------------------------------------------------
+ */
+function init() {
+    document.getElementById('csv-file').addEventListener('change', handleFileUpload);
+    document.getElementById('confirm-column-btn').addEventListener('click', () => {
+        state.targetColumn = document.getElementById('target-column').value;
+        activateStep(2);
+    });
+
+    document.getElementById('add-op-btn').addEventListener('click', addPipelineOperation);
+    document.getElementById('confirm-pipeline-btn').addEventListener('click', () => activateStep(3));
+    document.getElementById('run-analysis-btn').addEventListener('click', runAnalysis);
+    document.getElementById('download-csv-btn').addEventListener('click', downloadCSV);
+    document.getElementById('download-json-btn').addEventListener('click', downloadJSON);
+}
+
+function activateStep(stepNum) {
+    state.step = stepNum;
+    for (let i = 1; i <= 4; i++) {
+        const el = document.getElementById(`step-${i}`);
+        if (i <= stepNum) {
+            el.classList.add('active');
+        } else {
+            el.classList.remove('active');
+        }
+    }
+    document.getElementById(`step-${stepNum}`).scrollIntoView({ behavior: 'smooth' });
+}
+
+function handleFileUpload(e) {
+    console.log("File uploaded:", e.target.files[0].name);
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+        console.log("File read successfully.");
+        try {
+            const text = evt.target.result;
+            const result = parseCSV(text);
+            console.log("CSV Parsed. Headers:", result.headers);
+            state.rawData = result.data;
+            state.headers = result.headers;
+
+            const select = document.getElementById('target-column');
+            select.innerHTML = '';
+            state.headers.forEach(h => {
+                const option = document.createElement('option');
+                option.value = h;
+                option.textContent = h;
+                select.appendChild(option);
+            });
+            document.getElementById('column-select-group').style.display = 'block';
+        } catch (err) {
+            console.error("Error processing file:", err);
+        }
+    };
+    reader.readAsText(file);
+}
+
+function addPipelineOperation() {
+    const type = document.getElementById('operation-select').value;
+    const container = document.getElementById('pipeline-container');
+    const emptyMsg = document.getElementById('pipeline-empty-msg');
+
+    if (emptyMsg) emptyMsg.style.display = 'none';
+
+    const opId = Date.now();
+    const item = document.createElement('div');
+    item.className = 'pipeline-item';
+    item.dataset.id = opId;
+    item.dataset.type = type;
+
+    let detailsHtml = `<strong>${type}</strong>`;
+    if (type === 'regex_remove') {
+        detailsHtml += ` <input type="text" placeholder="Enter Regex (e.g. ^Ref:)" class="op-input-regex">`;
+    } else if (type === 'custom') {
+        detailsHtml += ` <textarea placeholder="return text.replace(/a/g, 'b');" class="op-input-custom"></textarea>`;
+    }
+
+    item.innerHTML = `
+        <div class="details">${detailsHtml}</div>
+        <div class="controls">
+            <button class="remove-btn" onclick="removePipelineItem(${opId})">X</button>
+            <div style="display:flex; flex-direction:column; margin-left:5px;">
+                <button onclick="moveOp(${opId}, -1)" style="padding:2px; font-size:10px;">▲</button>
+                <button onclick="moveOp(${opId}, 1)" style="padding:2px; font-size:10px;">▼</button>
+            </div>
+        </div>
+    `;
+    container.appendChild(item);
+}
+
+window.removePipelineItem = function(id) {
+    const item = document.querySelector(`.pipeline-item[data-id="${id}"]`);
+    if (item) item.remove();
+    if (document.getElementById('pipeline-container').children.length === 0) {
+        document.getElementById('pipeline-empty-msg').style.display = 'block';
+    }
+};
+
+window.moveOp = function(id, direction) {
+    const item = document.querySelector(`.pipeline-item[data-id="${id}"]`);
+    if (!item) return;
+    if (direction === -1 && item.previousElementSibling && item.previousElementSibling.id !== 'pipeline-empty-msg') {
+        item.parentNode.insertBefore(item, item.previousElementSibling);
+    } else if (direction === 1 && item.nextElementSibling) {
+        item.parentNode.insertBefore(item.nextElementSibling, item);
+    }
+};
+
+async function runAnalysis() {
+    document.getElementById('loading-indicator').style.display = 'block';
+    document.getElementById('results-area').style.display = 'none';
+
+    // Defer to allow UI update
+    setTimeout(() => {
+        try {
+            executePipeline();
+            if (state.cleanedData.length === 0) {
+                throw new Error("No data remaining after cleaning.");
+            }
+            computeTFIDF();
+            computePCA();
+            computeKMeans();
+            renderResults();
+            activateStep(4);
+        } catch (err) {
+            alert("Error: " + err.message);
+            console.error(err);
+        } finally {
+            document.getElementById('loading-indicator').style.display = 'none';
+            document.getElementById('results-area').style.display = 'block';
+        }
+    }, 100);
+}
+
+function executePipeline() {
+    const items = document.querySelectorAll('.pipeline-item');
+    state.cleanedData = [];
+
+    const rawList = state.rawData.map(r => r[state.targetColumn] || "");
+    const processedList = [];
+
+    rawList.forEach((text, idx) => {
+        let currentText = text;
+        let drop = false;
+
+        for (const item of items) {
+            const type = item.dataset.type;
+            if (type === 'regex_remove') {
+                const regexStr = item.querySelector('.op-input-regex').value;
+                console.log(`Checking regex: "${regexStr}" against "${currentText}"`);
+                if (regexStr) {
+                    try {
+                        const re = new RegExp(regexStr);
+                        if (re.test(currentText)) {
+                            console.log("Matched! Dropping.");
+                            drop = true;
+                            break;
+                        }
+                    } catch (e) { console.error("Regex error", e); }
+                }
+            } else if (type === 'custom') {
+                const funcBody = item.querySelector('.op-input-custom').value;
+                try {
+                    const func = new Function('text', funcBody);
+                    currentText = func(currentText);
+                    if (typeof currentText !== 'string') currentText = String(currentText);
+                } catch (e) {}
+            } else if (Operations[type]) {
+                currentText = Operations[type](currentText);
+            }
+        }
+
+        if (!drop) {
+            processedList.push({
+                original: text,
+                cleaned: currentText,
+                id: idx
+            });
+        }
+    });
+
+    state.cleanedData = processedList;
+}
+
+/**
+ * ---------------------------------------------------------
+ * TF-IDF VECTORIZER
+ * ---------------------------------------------------------
+ */
+function computeTFIDF() {
+    const minDf = parseInt(document.getElementById('min-df').value);
+    const maxDf = parseFloat(document.getElementById('max-df').value);
+    const nMin = parseInt(document.getElementById('ngram-min').value);
+    const nMax = parseInt(document.getElementById('ngram-max').value);
+
+    const docs = state.cleanedData.map(d => d.cleaned);
+    const N = docs.length;
+
+    // 1. Tokenization & N-grams
+    const docTokens = docs.map(doc => {
+        const tokens = doc.toLowerCase().split(/\s+/).filter(t => t.length > 0);
+        const ngrams = [];
+        for (let n = nMin; n <= nMax; n++) {
+            for (let i = 0; i <= tokens.length - n; i++) {
+                ngrams.push(tokens.slice(i, i + n).join(" "));
+            }
+        }
+        return ngrams;
+    });
+
+    // 2. Document Frequency
+    const df = {};
+    docTokens.forEach(tokens => {
+        const uniqueTokens = new Set(tokens);
+        uniqueTokens.forEach(t => {
+            df[t] = (df[t] || 0) + 1;
+        });
+    });
+
+    // 3. Filtering
+    const vocabulary = Object.keys(df).filter(term => {
+        const count = df[term];
+        const ratio = count / N;
+        return count >= minDf && ratio <= maxDf;
+    }).sort(); // Sort for consistent order
+
+    state.featureNames = vocabulary;
+    if (vocabulary.length === 0) throw new Error("Vocabulary is empty after filtering.");
+
+    // 4. Matrix Construction
+    // TF = count(t, d) / len(d) (or just raw count? Standard sklearn is raw count usually,
+    // but normalized later. Let's use Raw Count for TF, then IDF = log((N+1)/(df+1)) + 1
+    // Then L2 normalization.
+
+    state.tfidfMatrix = docTokens.map(tokens => {
+        const counts = {};
+        tokens.forEach(t => counts[t] = (counts[t] || 0) + 1);
+
+        const row = vocabulary.map(term => {
+            const tf = counts[term] || 0;
+            const idf = Math.log((N + 1) / (df[term] + 1)) + 1;
+            return tf * idf;
+        });
+
+        // L2 Normalize
+        const sumSq = row.reduce((acc, val) => acc + val * val, 0);
+        const norm = Math.sqrt(sumSq);
+        return norm > 0 ? row.map(v => v / norm) : row;
+    });
+}
+
+/**
+ * ---------------------------------------------------------
+ * PCA (Principal Component Analysis)
+ * ---------------------------------------------------------
+ */
+function computePCA() {
+    const X = state.tfidfMatrix;
+    const nSamples = X.length;
+    const nFeatures = X[0].length;
+    const nComponents = 2; // Fixed
+
+    // 1. Standardize (Center and Scale)
+    // Compute mean and std for each feature
+    const means = new Array(nFeatures).fill(0);
+    const stds = new Array(nFeatures).fill(0);
+
+    for (let j = 0; j < nFeatures; j++) {
+        let sum = 0;
+        for (let i = 0; i < nSamples; i++) sum += X[i][j];
+        means[j] = sum / nSamples;
+    }
+
+    for (let j = 0; j < nFeatures; j++) {
+        let sumSq = 0;
+        for (let i = 0; i < nSamples; i++) {
+            sumSq += Math.pow(X[i][j] - means[j], 2);
+        }
+        stds[j] = Math.sqrt(sumSq / (nSamples - 1)) || 1; // Avoid divide by zero
+    }
+
+    // Standardized Matrix Z
+    const Z = [];
+    for (let i = 0; i < nSamples; i++) {
+        const row = [];
+        for (let j = 0; j < nFeatures; j++) {
+            row.push((X[i][j] - means[j]) / stds[j]);
+        }
+        Z.push(row);
+    }
+
+    // 2. Covariance Matrix C = (Z^T * Z) / (n - 1)
+    // This results in an nFeatures x nFeatures matrix.
+    // WARNING: If vocabulary is large (e.g. 5000), this is 25 million entries.
+    // In browser JS, this might be slow or crash.
+    // Optimization: If nFeatures > nSamples, it's often better to do SVD or use the Gram matrix (Z * Z^T).
+    // But requirements say "Compute the Covariance Matrix". I will proceed with caution.
+    // If nFeatures is huge, we should probably warn or limit.
+    // For this demo, let's assume reasonable data.
+
+    // To strictly follow "Covariance Matrix" requirement, we compute C directly.
+    const C = new Array(nFeatures);
+    for (let i = 0; i < nFeatures; i++) C[i] = new Array(nFeatures).fill(0);
+
+    for (let i = 0; i < nFeatures; i++) {
+        for (let j = i; j < nFeatures; j++) { // Symmetric
+            let sum = 0;
+            for (let k = 0; k < nSamples; k++) {
+                sum += Z[k][i] * Z[k][j];
+            }
+            const cov = sum / (nSamples - 1);
+            C[i][j] = cov;
+            C[j][i] = cov;
+        }
+    }
+
+    // 3. Eigen Decomposition (Jacobi Algorithm for Symmetric Matrices)
+    const { eigenvectors, eigenvalues } = jacobi(C);
+
+    // 4. Sort and Project
+    const indices = eigenvalues.map((e, i) => i);
+    indices.sort((a, b) => eigenvalues[b] - eigenvalues[a]); // Descending
+
+    const topIndices = indices.slice(0, nComponents);
+    const projectionMatrix = topIndices.map(idx => eigenvectors[idx]); // nComp x nFeat
+
+    // Project: Reduced = Z * ProjectionMatrix^T
+    // (nSamples x nFeat) * (nFeat x nComp) -> nSamples x nComp
+
+    state.pcaVectors = [];
+    for (let i = 0; i < nSamples; i++) {
+        const row = [];
+        for (let k = 0; k < nComponents; k++) {
+            let sum = 0;
+            for (let j = 0; j < nFeatures; j++) {
+                sum += Z[i][j] * projectionMatrix[k][j];
+            }
+            row.push(sum);
+        }
+        state.pcaVectors.push(row);
+    }
+}
+
+// Jacobi Eigenvalue Algorithm
+function jacobi(A, maxIter = 100, tol = 1e-8) {
+    const n = A.length;
+    // Clone A to not modify original
+    let M = A.map(row => [...row]);
+    // Identity matrix for eigenvectors
+    let V = Array.from({ length: n }, (_, i) =>
+        Array.from({ length: n }, (_, j) => (i === j ? 1 : 0))
+    );
+
+    for (let iter = 0; iter < maxIter; iter++) {
+        // Find max off-diagonal element
+        let maxVal = 0;
+        let p = 0, q = 0;
+        for (let i = 0; i < n - 1; i++) {
+            for (let j = i + 1; j < n; j++) {
+                if (Math.abs(M[i][j]) > maxVal) {
+                    maxVal = Math.abs(M[i][j]);
+                    p = i;
+                    q = j;
+                }
+            }
+        }
+
+        if (maxVal < tol) break;
+
+        // Calculate rotation variables
+        const app = M[p][p];
+        const aqq = M[q][q];
+        const apq = M[p][q];
+
+        const phi = 0.5 * Math.atan2(2 * apq, aqq - app);
+        const c = Math.cos(phi);
+        const s = Math.sin(phi);
+
+        // Update M (A' = J^T * A * J)
+        // We only update the affected rows/cols p and q
+        M[p][p] = c * c * app - 2 * s * c * apq + s * s * aqq;
+        M[q][q] = s * s * app + 2 * s * c * apq + c * c * aqq;
+        M[p][q] = 0; // By definition
+        M[q][p] = 0;
+
+        for (let i = 0; i < n; i++) {
+            if (i !== p && i !== q) {
+                const api = M[i][p]; // = M[p][i]
+                const aqi = M[i][q]; // = M[q][i]
+
+                M[i][p] = c * api - s * aqi;
+                M[p][i] = M[i][p];
+
+                M[i][q] = s * api + c * aqi;
+                M[q][i] = M[i][q];
+            }
+        }
+
+        // Update Eigenvectors V (V' = V * J)
+        for (let i = 0; i < n; i++) {
+            const vip = V[i][p];
+            const viq = V[i][q];
+            V[i][p] = c * vip - s * viq;
+            V[i][q] = s * vip + c * viq;
+        }
+    }
+
+    // Extract eigenvalues from diagonal
+    const eigenvalues = [];
+    for (let i = 0; i < n; i++) eigenvalues.push(M[i][i]);
+
+    // V columns are eigenvectors. Transpose V to get rows as eigenvectors
+    const eigenvectors = [];
+    for (let j = 0; j < n; j++) {
+        const vec = [];
+        for (let i = 0; i < n; i++) vec.push(V[i][j]);
+        eigenvectors.push(vec);
+    }
+
+    return { eigenvalues, eigenvectors };
+}
+
+/**
+ * ---------------------------------------------------------
+ * K-MEANS CLUSTERING
+ * ---------------------------------------------------------
+ */
+function computeKMeans() {
+    const k = parseInt(document.getElementById('kmeans-k').value);
+    const data = state.pcaVectors;
+    const n = data.length;
+
+    // Initialize Centroids Randomly
+    let centroids = [];
+    const usedIndices = new Set();
+    while (centroids.length < k && usedIndices.size < n) {
+        const idx = Math.floor(Math.random() * n);
+        if (!usedIndices.has(idx)) {
+            usedIndices.add(idx);
+            centroids.push([...data[idx]]);
+        }
+    }
+
+    // Fallback if n < k
+    while (centroids.length < k) centroids.push([...data[0]]);
+
+    let assignments = new Array(n).fill(-1);
+    let changed = true;
+    let maxIter = 100;
+
+    for (let iter = 0; iter < maxIter && changed; iter++) {
+        changed = false;
+
+        // Assignment Step
+        for (let i = 0; i < n; i++) {
+            let minDist = Infinity;
+            let cluster = -1;
+            for (let j = 0; j < k; j++) {
+                const d = euclidean(data[i], centroids[j]);
+                if (d < minDist) {
+                    minDist = d;
+                    cluster = j;
+                }
+            }
+            if (assignments[i] !== cluster) {
+                assignments[i] = cluster;
+                changed = true;
+            }
+        }
+
+        // Update Step
+        const newCentroids = Array.from({ length: k }, () => [0, 0]);
+        const counts = new Array(k).fill(0);
+
+        for (let i = 0; i < n; i++) {
+            const c = assignments[i];
+            newCentroids[c][0] += data[i][0];
+            newCentroids[c][1] += data[i][1];
+            counts[c]++;
+        }
+
+        for (let j = 0; j < k; j++) {
+            if (counts[j] > 0) {
+                centroids[j][0] = newCentroids[j][0] / counts[j];
+                centroids[j][1] = newCentroids[j][1] / counts[j];
+            }
+        }
+    }
+
+    state.clusters = assignments;
+}
+
+function euclidean(a, b) {
+    return Math.sqrt(Math.pow(a[0]-b[0], 2) + Math.pow(a[1]-b[1], 2));
+}
+
+/**
+ * ---------------------------------------------------------
+ * RENDERING & EXPORTS
+ * ---------------------------------------------------------
+ */
+function renderResults() {
+    // 1. Table
+    const tbody = document.querySelector('#results-table tbody');
+    tbody.innerHTML = '';
+    state.cleanedData.forEach((item, i) => {
+        const row = document.createElement('tr');
+        const cId = state.clusters[i];
+        row.innerHTML = `
+            <td><div style="max-height:100px; overflow-y:auto;">${escapeHtml(item.original)}</div></td>
+            <td><div style="max-height:100px; overflow-y:auto;">${escapeHtml(item.cleaned)}</div></td>
+            <td>${cId}</td>
+        `;
+        tbody.appendChild(row);
+    });
+
+    // 2. TF-IDF Preview
+    const matrixBody = document.querySelector('#tfidf-preview-table tbody');
+    const matrixHead = document.querySelector('#tfidf-preview-table thead');
+    matrixBody.innerHTML = '';
+    matrixHead.innerHTML = '';
+
+    // Headers
+    const headRow = document.createElement('tr');
+    headRow.innerHTML = '<th>Doc ID</th>' + state.featureNames.slice(0, 20).map(f => `<th>${f}</th>`).join('');
+    matrixHead.appendChild(headRow);
+
+    // Rows (first 10)
+    state.tfidfMatrix.slice(0, 10).forEach((vec, i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${i}</td>` + vec.slice(0, 20).map(v => `<td>${v.toFixed(3)}</td>`).join('');
+        matrixBody.appendChild(tr);
+    });
+
+    // 3. Scatter Plot
+    drawScatterPlot();
+}
+
+function drawScatterPlot() {
+    const canvas = document.getElementById('scatter-plot');
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+
+    ctx.clearRect(0, 0, width, height);
+
+    // Find bounds
+    const xs = state.pcaVectors.map(v => v[0]);
+    const ys = state.pcaVectors.map(v => v[1]);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+
+    const padding = 40;
+    const rangeX = maxX - minX || 1;
+    const rangeY = maxY - minY || 1;
+
+    // Scale function
+    const scaleX = (x) => padding + ((x - minX) / rangeX) * (width - 2 * padding);
+    const scaleY = (y) => height - padding - ((y - minY) / rangeY) * (height - 2 * padding);
+
+    // Colors
+    const colors = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#f1c40f', '#e67e22', '#1abc9c', '#34495e'];
+
+    state.plotPoints = [];
+
+    state.pcaVectors.forEach((vec, i) => {
+        const cx = scaleX(vec[0]);
+        const cy = scaleY(vec[1]);
+        const cluster = state.clusters[i];
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, 5, 0, 2 * Math.PI);
+        ctx.fillStyle = colors[cluster % colors.length];
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.stroke();
+
+        // Save for tooltip
+        state.plotPoints.push({ x: cx, y: cy, r: 5, index: i });
+    });
+
+    // Draw Axes
+    ctx.strokeStyle = '#ccc';
+    ctx.beginPath();
+    ctx.moveTo(padding, height - padding);
+    ctx.lineTo(width - padding, height - padding); // X
+    ctx.moveTo(padding, height - padding);
+    ctx.lineTo(padding, padding); // Y
+    ctx.stroke();
+
+    // Tooltip Interaction
+    canvas.onmousemove = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+
+        const hit = state.plotPoints.find(p => {
+            const dist = Math.sqrt((p.x - mx)**2 + (p.y - my)**2);
+            return dist < p.r + 2;
+        });
+
+        const tooltip = document.getElementById('plot-tooltip');
+        if (hit) {
+            tooltip.style.display = 'block';
+            // Position relative to the canvas container (which is relative)
+            // e.clientX is viewport x. rect.left is viewport x of canvas.
+            // mx is x inside canvas.
+            tooltip.style.left = (mx + 10) + 'px';
+            tooltip.style.top = (my + 10) + 'px';
+            tooltip.textContent = state.cleanedData[hit.index].original;
+        } else {
+            tooltip.style.display = 'none';
+        }
+    };
+}
+
+function escapeHtml(text) {
+    if (!text) return "";
+    return text.replace(/&/g, "&amp;")
+               .replace(/</g, "&lt;")
+               .replace(/>/g, "&gt;")
+               .replace(/"/g, "&quot;")
+               .replace(/'/g, "&#039;");
+}
+
+function downloadCSV() {
+    const headers = ['Original Text', 'Cleaned Text'];
+    const rows = [headers.join(',')];
+
+    state.cleanedData.forEach(item => {
+        // Simple CSV escape
+        const row = [item.original, item.cleaned].map(t => `"${(t||"").replace(/"/g, '""')}"`);
+        rows.push(row.join(','));
+    });
+
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'cleaned_data.csv';
+    a.click();
+}
+
+function downloadJSON() {
+    const data = state.cleanedData.map((item, i) => ({
+        id: i,
+        vector: state.pcaVectors[i],
+        cluster: state.clusters[i]
+    }));
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'vectors.json';
+    a.click();
+}
+
+init();
+
+</script>
+</body>
+</html>
